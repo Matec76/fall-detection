@@ -1,0 +1,54 @@
+# Lin et al. 2021, "A Framework for Fall Detection Based on OpenPose Skeleton and LSTM/GRU Models",
+# Appl. Sci. 11, 329. Defaults reproduce their best setting (Table 9: LSTM, 512 nodes, lr 0.01,
+# RP-normalization -> 98.2% accuracy on URFD + FDD).
+classes: [fall, no_fall]
+
+data:
+  real_dir: data/poses/urfd          # <real_dir>/<class>/*.npz  (falldet.urfd + falldet.extract_poses)
+  split: random                      # random: split real_dir by test_size/val_size
+                                     # predefined: use <real_dir>/{train,val,test}/<class>/*.npz as is
+  group_split: true                  # keep all windows of one video on the same side of the split.
+                                     # false = the paper's plain random split (overlapping windows of a
+                                     # video end up in train AND test, which inflates the score)
+  test_size: 0.2                     # paper: 80% train / 20% test
+  val_size: 0.0                      # paper has no validation set: the last epoch is evaluated
+  synthetic_dir: null                # optional extra clips, added to the TRAIN split only
+  synthetic_per_class: null
+  real_train: true
+  seed: 42
+
+preprocess:
+  seq_len: 100                       # frames per group (Sec. 2.1)
+  joints: body15                     # body15 = the paper's 15 joints (Sec. 2.3.2) | coco17
+  interpolate: false                 # linear interpolation of missing joints (Sec. 2.3.3); the best
+                                     # result (98.2%) was without it, see Tables 7 and 9
+  max_missing: 0.67                  # do not interpolate a joint missing in more than 67% of frames
+  norm_mode: rp                      # none | minmax (Eq. 1) | uniform | rp (Eq. 2-7)
+  rp_size: [640, 480]                # frame size RP-normalization rescales to
+  rp_scale: true                     # divide RP coordinates by rp_size -> [0, 1]. Not in the paper, but
+                                     # with raw pixels the recurrent models stay at chance level here
+  use_conf: false                    # the paper drops the keypoint scores: 15 joints x (x, y) = 30 inputs
+  extra: []                          # motion features, e.g. [hip_y, hip_vy, neck_vy, aspect, torso]
+  conf_thr: 0.3                      # keypoints below this confidence count as missing
+
+augment:
+  enabled: false
+
+model:
+  name: lstm                         # rnn | lstm | gru (Lin et al.) | stacked_lstm | transformer (Juraev et al.)
+  rnn: {hidden: 512}                 # Table 5: 64 / 128 / 256 / 512 / 1024
+  lstm: {hidden: 512}
+  gru: {hidden: 512}
+  stacked_lstm: {hidden: [32, 64, 32], dense: [128, 64, 32, 16], dropout: 0.3}
+  transformer: {d_model: 64, nhead: 1, num_layers: 4, dim_ff: 256, dropout: 0.3}
+  tcn: {channels: 64, kernel: 5, layers: 3, dropout: 0.2}
+
+train:
+  epochs: 500
+  batch_size: null                   # null = the whole training set in one batch (Table 3)
+  lr: 0.01                           # Tables 6-7: 0.1 / 0.01 / 0.001
+  weight_decay: 0.0
+  grad_clip: 1.0                     # clip the gradient norm. Not in the paper; without it the plain RNN
+                                     # diverges on 100-frame sequences here
+  class_weights: false               # classes are balanced by falldet.urfd
+  device: auto                       # auto | cpu | cuda | mps

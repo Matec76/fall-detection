@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "falldet"
+version = "0.1.0"
+description = "Pose-based elderly fall detection (Transformer / LSTM over 2D keypoints)"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "numpy",
+    "scikit-learn",
+    "pyyaml",
+    "tqdm",
+    "opencv-python",
+    "ultralytics>=8.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+omnifall = ["omnifall", "imageio-ffmpeg"]
+
+[tool.setuptools]
+packages = ["falldet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

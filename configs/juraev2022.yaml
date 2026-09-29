@@ -1,0 +1,41 @@
+# Juraev et al. 2022, IEEE Access 10, 94249 (the project's first reference paper): 4 action classes,
+# Transformer / stacked LSTM, min-max normalisation. Values follow its Table 4 unless noted.
+classes: [falling_down, standing_up, lying_down, walking]
+
+data:
+  real_dir: data/poses/omnifall/staged_cs  # OmniFall with falldet.omnifall --label-map paper4
+  split: predefined                  # random: split real_dir by test_size/val_size
+                                     # predefined: use <real_dir>/{train,val,test}/<class>/*.npz as is
+  synthetic_dir: null                # optional synthetic clips (its train/ part if present), TRAIN split only
+  synthetic_per_class: null          # null = use all; e.g. 400 -> "Real+1600" in Fig. 9/10
+  real_train: true                   # false + synthetic_dir = "Synthetic" row of Table 7 (test stays real)
+  test_size: 0.25                    # random split only; paper: train/test = 3:1
+  val_size: 0.1                      # random split only; held out from train to pick the checkpoint
+  seed: 42
+
+preprocess:
+  seq_len: 25                        # T frames per sample
+  joints: coco17
+  interpolate: false
+  use_conf: true
+  norm_mode: minmax                  # minmax = Eq. (1), per axis | uniform = same scale for x and y
+  conf_thr: 0.3                      # keypoints below this confidence are treated as missing
+
+augment:
+  enabled: true
+  flip_prob: 0.5
+  crop_min: 0.8                      # random temporal crop keeping >= 80% of the clip
+  noise_std: 0.01
+
+model:
+  name: transformer                  # transformer | stacked_lstm
+  transformer: {d_model: 64, nhead: 1, num_layers: 4, dim_ff: 256, dropout: 0.3}
+  stacked_lstm: {hidden: [32, 64, 32], dense: [128, 64, 32, 16], dropout: 0.3}
+
+train:
+  epochs: 200
+  batch_size: 128
+  lr: 0.001
+  weight_decay: 0.0
+  class_weights: true                # counter class imbalance (e.g. few falling_down clips)
+  device: auto                       # auto | cpu | cuda | mps
